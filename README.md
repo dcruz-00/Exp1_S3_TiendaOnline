@@ -1,1 +1,1 @@
-# POO2-Exp1_S1_Grupo11
+Programa de tienda de ropa simple.
