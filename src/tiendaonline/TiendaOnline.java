@@ -13,5 +13,4 @@ public class TiendaOnline {
         Menu menu = new Menu(inventario);
         menu.menuInteractivo();
     }
-
 }
