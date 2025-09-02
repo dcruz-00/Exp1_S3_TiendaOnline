@@ -1,40 +1,24 @@
 package tiendaonline.ui;
 
-import service.DiscountManager;
-import tiendaonline.decorator.DecoratorDescuentoEstudiante;
-import tiendaonline.decorator.DecoratorDescuentoSocio;
-import tiendaonline.command.ComponenteConcreto;
-import tiendaonline.decorator.Component;
-import tiendaonline.command.Invoker;
-import tiendaonline.command.EliminarProductoCommand;
-import tiendaonline.command.AgregarProductoCommand;
-import tiendaonline.command.Command;
-import tiendaonline.model.Inventario;
-import tiendaonline.model.Carrito;
-import tiendaonline.model.Producto;
+import tiendaonline.model.*;
+import tiendaonline.decorator.*;
+import tiendaonline.command.*;
 import java.util.Scanner;
 
 public class Menu {
 
     private final Scanner scanner = new Scanner(System.in);
     private final Inventario inventario;
+    private final Pedido pedido;
     private Producto productoSeleccionado;
-    private int porcentaje;
     private Component component = new ComponenteConcreto();
-    private final Carrito carrito = new Carrito();
+    private final Usuario usuario;
     private final Invoker invoker = new Invoker();
 
-    static String[] opcionesMenu = {
-        "------------------------",
-        "1) Agregar producto al carrito.",
-        "2) Eliminar producto del carrito.",
-        "3) Aplicar descuento.",
-        "4) Mostrar carrito.",
-        "5) Salir del programa.",
-        "------------------------",};
-
-    public Menu(Inventario inventario) {
+    public Menu(Inventario inventario, Usuario usuario) {
         this.inventario = inventario;
+        this.usuario = usuario;
+        this.pedido = new Pedido(1, usuario);
     }
 
     public void menuInteractivo() {
@@ -43,76 +27,90 @@ public class Menu {
 
         do {
             mostrarMenu();
-            if (scanner.hasNextInt()) {
+            if(scanner.hasNextInt()){
                 opcionMenu = scanner.nextInt();
                 scanner.nextLine();
 
-                switch (opcionMenu) {
-                    case 1 ->
-                        agregarProductoAlCarrito();
-                    case 2 ->
-                        eliminarProductoDelCarrito();
-                    case 3 -> 
-                        aplicarDescuento();
-                    case 4 -> 
-                        carrito.mostrarCarrito();
-                    case 5 -> {
-                        System.out.println("Saliendo del sistema...");
-                    }
-                    default ->
-                        System.out.println("Opcion no valida.");
+                switch(opcionMenu){
+                    case 1 -> agregarProducto();
+                    case 2 -> eliminarProducto();
+                    case 3 -> aplicarDescuento();
+                    case 4 -> mostrarCarrito();
+                    case 5 -> System.out.println("Saliendo...");
+                    default -> System.out.println("Opción inválida");
                 }
             } else {
-                System.out.println("Entrada no valida. Ingrese un numero.");
+                System.out.println("Entrada inválida.");
                 scanner.nextLine();
             }
-        } while (opcionMenu != 5);
+        } while(opcionMenu != 5);
     }
 
-    private void agregarProductoAlCarrito() {
+    private void agregarProducto() {
         productoSeleccionado = inventario.seleccionarProducto();
-        if (productoSeleccionado != null) {
-            Command agregar = new AgregarProductoCommand(carrito, productoSeleccionado);
+        if(productoSeleccionado != null){
+            Command agregar = new AgregarProductoCommand(pedido, productoSeleccionado);
             invoker.agregarComando(agregar);
             invoker.ejecutarComando(agregar);
         }
     }
 
-    private void eliminarProductoDelCarrito() {
+    private void eliminarProducto() {
         productoSeleccionado = inventario.seleccionarProducto();
-        if (productoSeleccionado != null) {
-            Command eliminar = new EliminarProductoCommand(carrito, productoSeleccionado);
+        if(productoSeleccionado != null){
+            Command eliminar = new EliminarProductoCommand(pedido, productoSeleccionado);
             invoker.agregarComando(eliminar);
             invoker.ejecutarComando(eliminar);
         }
     }
 
     private void aplicarDescuento() {
-        if (productoSeleccionado != null) {
-            int opcion = DiscountManager.getInstance().elegirDescuento();
-            switch (opcion) {
-                case 1:
-                    DiscountManager.getInstance().aplicarDescuento(productoSeleccionado, porcentaje);
-                    break;
-                case 2:
-                    component = new DecoratorDescuentoEstudiante(component);
-                    component.aplicarDescuento(productoSeleccionado, porcentaje);
-                    break;
-                case 3:
-                    component = new DecoratorDescuentoSocio(component);
-                    component.aplicarDescuento(productoSeleccionado, porcentaje);
-                    break;
-                default:
-                    break;
+        if(productoSeleccionado == null){
+            System.out.println("Seleccione un producto primero.");
+            return;
+        }
+        System.out.println("1) Porcentaje manual");
+        System.out.println("2) Estudiante");
+        System.out.println("3) Socio");
+        int tipo = scanner.nextInt();
+        scanner.nextLine();
+
+        switch(tipo){
+            case 1 -> {
+                System.out.print("Ingrese porcentaje: ");
+                int porcentaje = scanner.nextInt();
+                scanner.nextLine();
+                component.aplicarDescuento(productoSeleccionado, porcentaje);
             }
-        } else {
-            System.out.println("Primero debe seleccionar un producto antes de aplicar un descuento.");
+            case 2 -> {
+                component = new DecoratorDescuentoEstudiante(component, usuario, 30);
+                component.aplicarDescuento(productoSeleccionado,0);
+            }
+            case 3 -> {
+                component = new DecoratorDescuentoSocio(component, usuario,50);
+                component.aplicarDescuento(productoSeleccionado,0);
+            }
+            default -> System.out.println("Opción inválida");
         }
     }
 
-    public void mostrarMenu() {
-        for (int i = 0; i < opcionesMenu.length; i++) {
-            System.out.println(opcionesMenu[i]);
+    private void mostrarCarrito() {
+        System.out.println("\n=== CARRITO ===");
+        int total = 0;
+        for(Producto p: pedido.getProductos()){
+            System.out.println("- " + p.getNombre() + " - $" + p.getValor());
+            total += p.getValor();
         }
+        System.out.println("TOTAL: $" + total);
+    }
+
+    private void mostrarMenu(){
+        System.out.println("------------------------");
+        System.out.println("1) Agregar producto al carrito.");
+        System.out.println("2) Eliminar producto del carrito.");
+        System.out.println("3) Aplicar descuento.");
+        System.out.println("4) Mostrar carrito.");
+        System.out.println("5) Salir.");
+        System.out.println("------------------------");
     }
 }
